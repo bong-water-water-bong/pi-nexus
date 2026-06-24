@@ -1,0 +1,26 @@
+{
+  "name": "pi-nexus",
+  "version": "1.0.0",
+  "description": "Nexus Router provider for pi — private OpenAI-compatible inference via nexus-projects.ai",
+  "type": "module",
+  "keywords": ["pi-package", "nexus", "nexus-router", "llm", "api-gateway"],
+  "license": "MIT",
+  "pi": {
+    "extensions": ["./extensions"]
+  },
+  "scripts": {
+    "test": "node --test --import tsx test/*.test.ts"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bong-water-water-bong/pi-nexus.git"
+  }
+}
