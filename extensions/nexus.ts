@@ -27,6 +27,9 @@ import type {
   ExtensionAPI,
   ProviderModelConfig,
 } from "@earendil-works/pi-coding-agent";
+import { readFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { mapNexusModels, type NexusModel } from "../lib/mapping.ts";
 
 const BASE_URL = "https://api.nexus-projects.ai/api/v1";
@@ -34,15 +37,50 @@ const PROVIDER_NAME = "nexus";
 const ENV_API_KEY = "NEXUS_API_KEY";
 const ENV_AGENT = "NEXUS_AGENT";
 
+/**
+ * Resolve the Nexus API key for startup model discovery.
+ *
+ * The extension factory runs before pi's auth storage is available to it, so
+ * it can only see process.env and the filesystem. We try, in order:
+ *   1. $NEXUS_API_KEY env var
+ *   2. the "nexus" entry in ~/.pi/agent/auth.json (same store pi reads at
+ *      request time, so auth.json works for discovery too)
+ *
+ * At request time pi resolves the key itself from the provider config's
+ * `apiKey: "$NEXUS_API_KEY"` plus the same auth.json entry.
+ */
+function resolveApiKey(): string | undefined {
+  const envKey = process.env[ENV_API_KEY];
+  if (envKey && envKey.trim()) return envKey;
+  try {
+    const authPath = join(homedir(), ".pi", "agent", "auth.json");
+    const raw = readFileSync(authPath, "utf-8");
+    const data = JSON.parse(raw) as Record<string, unknown>;
+    const cred = data[PROVIDER_NAME];
+    if (
+      cred &&
+      typeof cred === "object" &&
+      cred !== null &&
+      (cred as { type?: string }).type === "api_key" &&
+      typeof (cred as { key?: string }).key === "string"
+    ) {
+      return (cred as { key: string }).key;
+    }
+  } catch {
+    // auth.json missing/unreadable — fine, env var is the other path.
+  }
+  return undefined;
+}
+
 export default async function (pi: ExtensionAPI) {
-  const apiKey = process.env[ENV_API_KEY];
+  const apiKey = resolveApiKey();
 
   if (!apiKey) {
     console.warn(
-      `[pi-nexus] ${ENV_API_KEY} not set. Skipping model discovery.\n` +
+      `[pi-nexus] no API key found. Skipping model discovery.\n` +
         `  Auth options:\n` +
         `    export ${ENV_API_KEY}=nxr_...                # env var\n` +
-        `    "nexus": {"type":"api_key","key":"nxr_..."}  # auth.json`
+        `    "nexus": {"type":"api_key","key":"nxr_..."}  # ~/.pi/agent/auth.json`
     );
     return;
   }
